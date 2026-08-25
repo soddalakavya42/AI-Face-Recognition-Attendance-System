@@ -10,4 +10,4 @@ Pillow
 scikit-image
 scipy
 tqdm
-requests
+requestsstreamlit
