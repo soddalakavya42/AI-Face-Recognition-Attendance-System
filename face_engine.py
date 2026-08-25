@@ -1,296 +1,85 @@
-import streamlit as st
 import cv2
+import os
 import numpy as np
-from PIL import Image
+from insightface.app import FaceAnalysis
 
-from face_engine import (
-    face_app,
-    known_faces,
-    load_known_faces,
-    register_face,
-    detect_faces
+face_app = FaceAnalysis(
+    name="buffalo_l",
+    providers=["CPUExecutionProvider"]
 )
 
-
-# =========================================================
-# PAGE CONFIG
-# =========================================================
-
-st.set_page_config(
-    page_title="AI Face Recognition Attendance System",
-    page_icon="🎓",
-    layout="wide"
-)
+face_app.prepare(ctx_id=0, det_size=(640, 640))
 
 
-# =========================================================
-# TITLE
-# =========================================================
+# Load known face
+known_faces = {}
 
-st.title("🎓 AI Face Recognition Attendance System")
-st.caption("AI-powered Face Recognition Attendance System")
+known_faces_folder = "known_faces"
 
+for filename in os.listdir(known_faces_folder):
+    if filename.lower().endswith((".jpg", ".jpeg", ".png")):
 
-# =========================================================
-# SIDEBAR
-# =========================================================
+        image_path = os.path.join(known_faces_folder, filename)
+        image = cv2.imread(image_path)
 
-st.sidebar.title("📌 Menu")
+        faces = face_app.get(image)
 
-menu = st.sidebar.radio(
-    "Select Option",
-    [
-        "🏠 Dashboard",
-        "📷 Face Recognition",
-        "👤 Register Student",
-        "👥 Known Faces"
-    ]
-)
+        if len(faces) > 0:
+            name = os.path.splitext(filename)[0]
+            known_faces[name] = faces[0].embedding
+
+            print(f"Loaded known face: {name}")
 
 
-# =========================================================
-# DASHBOARD
-# =========================================================
-
-if menu == "🏠 Dashboard":
-
-    st.header("🏠 Dashboard")
-
-    col1, col2, col3 = st.columns(3)
-
-    with col1:
-        st.metric(
-            "Registered Faces",
-            len(known_faces)
-        )
-
-    with col2:
-        st.metric(
-            "AI Model",
-            "InsightFace"
-        )
-
-    with col3:
-        st.metric(
-            "Recognition",
-            "Cosine Similarity"
-        )
-
-    st.success(
-        "✅ AI Face Recognition Attendance System is running!"
-    )
-
-    st.info(
-        "Use the sidebar to register students or recognize faces."
-    )
+def detect_faces(frame):
+    faces = face_app.get(frame)
+    return faces
 
 
-# =========================================================
-# FACE RECOGNITION
-# =========================================================
+def draw_faces(frame, faces):
 
-elif menu == "📷 Face Recognition":
+    for face in faces:
 
-    st.header("📷 Face Recognition")
+        x1, y1, x2, y2 = face.bbox.astype(int)
 
-    st.write(
-        "Capture an image using your camera and recognize the face."
-    )
+        name = "Unknown"
 
-    camera_image = st.camera_input(
-        "Take a picture"
-    )
-
-    if camera_image is not None:
-
-        image = Image.open(
-            camera_image
-        )
-
-        frame = np.array(
-            image
-        )
-
-        frame = cv2.cvtColor(
-            frame,
-            cv2.COLOR_RGB2BGR
-        )
-
-        with st.spinner(
-            "🔍 Recognizing face..."
-        ):
-
-            faces = detect_faces(
-                frame
-            )
-
-        if len(faces) == 0:
-
-            st.error(
-                "❌ No face detected."
-            )
-
-        else:
-
-            face = max(
-                faces,
-                key=lambda x: (
-                    x.bbox[2] - x.bbox[0]
-                ) * (
-                    x.bbox[3] - x.bbox[1]
-                )
-            )
-
-            current_embedding = (
-                face.embedding
-            )
+        if known_faces:
+            current_embedding = face.embedding
 
             best_name = "Unknown"
-            best_score = 0.0
+            best_score = 0
 
-            for (
-                known_name,
-                known_embedding
-            ) in known_faces.items():
+            for known_name, known_embedding in known_faces.items():
 
-                score = np.dot(
-                    current_embedding,
-                    known_embedding
-                ) / (
-                    np.linalg.norm(
-                        current_embedding
-                    )
-                    *
-                    np.linalg.norm(
-                        known_embedding
-                    )
+                score = np.dot(current_embedding, known_embedding) / (
+                    np.linalg.norm(current_embedding)
+                    * np.linalg.norm(known_embedding)
                 )
 
                 if score > best_score:
-
                     best_score = score
                     best_name = known_name
 
             if best_score > 0.50:
+                name = best_name
 
-                st.success(
-                    f"✅ Recognized: {best_name}"
-                )
-
-                st.metric(
-                    "Similarity Score",
-                    f"{best_score:.2f}"
-                )
-
-                st.info(
-                    "Face recognized successfully."
-                )
-
-            else:
-
-                st.warning(
-                    "⚠️ Unknown Face"
-                )
-
-                st.metric(
-                    "Similarity Score",
-                    f"{best_score:.2f}"
-                )
-
-
-# =========================================================
-# REGISTER STUDENT
-# =========================================================
-
-elif menu == "👤 Register Student":
-
-    st.header("👤 Register New Student")
-
-    name = st.text_input(
-        "Student Name"
-    )
-
-    captured_image = st.camera_input(
-        "Capture Student Face"
-    )
-
-    if st.button(
-        "➕ Register Student"
-    ):
-
-        if not name.strip():
-
-            st.error(
-                "Please enter student name."
-            )
-
-        elif captured_image is None:
-
-            st.error(
-                "Please capture a face image."
-            )
-
-        else:
-
-            image = Image.open(
-                captured_image
-            )
-
-            frame = np.array(
-                image
-            )
-
-            frame = cv2.cvtColor(
-                frame,
-                cv2.COLOR_RGB2BGR
-            )
-
-            with st.spinner(
-                "Registering face..."
-            ):
-
-                success, message = register_face(
-                    name,
-                    frame
-                )
-
-            if success:
-
-                st.success(
-                    f"✅ Student '{message}' registered successfully!"
-                )
-
-            else:
-
-                st.error(
-                    f"❌ {message}"
-                )
-
-
-# =========================================================
-# KNOWN FACES
-# =========================================================
-
-elif menu == "👥 Known Faces":
-
-    st.header("👥 Registered Students")
-
-    load_known_faces()
-
-    if len(known_faces) == 0:
-
-        st.warning(
-            "No registered faces found."
+        cv2.rectangle(
+            frame,
+            (x1, y1),
+            (x2, y2),
+            (0, 255, 0),
+            2
         )
 
-    else:
-
-        st.success(
-            f"Total registered faces: {len(known_faces)}"
+        cv2.putText(
+            frame,
+            name,
+            (x1, y1 - 10),
+            cv2.FONT_HERSHEY_SIMPLEX,
+            0.8,
+            (0, 255, 0),
+            2
         )
 
-        for name in known_faces:
-
-            st.write(
-                f"👤 {name}"
-            )
+    return frame
