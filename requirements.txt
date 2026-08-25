@@ -1,0 +1,13 @@
+Flask
+gunicorn
+opencv-python-headless
+numpy
+psycopg2-binary
+insightface
+onnx
+onnxruntime
+Pillow
+scikit-image
+scipy
+tqdm
+requests
