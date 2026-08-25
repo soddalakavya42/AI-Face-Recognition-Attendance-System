@@ -22,13 +22,8 @@ app.secret_key = "smart-attendance-secret-key"
 # =========================================================
 
 def get_connection():
-
     return psycopg2.connect(
-        host="localhost",
-        database="face_attendance",
-        user="postgres",
-        password="Postgres@123",
-        port="5432"
+        os.environ.get("DATABASE_URL")
     )
 
 
