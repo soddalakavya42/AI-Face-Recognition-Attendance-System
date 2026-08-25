@@ -3,38 +3,72 @@ import os
 import numpy as np
 from insightface.app import FaceAnalysis
 
+
+# =========================================================
+# FACE RECOGNITION MODEL
+# Lightweight model for Render Free memory limit
+# =========================================================
+
 face_app = FaceAnalysis(
-    name="buffalo_l",
+    name="buffalo_s",
     providers=["CPUExecutionProvider"]
 )
 
-face_app.prepare(ctx_id=0, det_size=(640, 640))
+face_app.prepare(
+    ctx_id=0,
+    det_size=(640, 640)
+)
 
 
-# Load known face
+# =========================================================
+# LOAD KNOWN FACES
+# =========================================================
+
 known_faces = {}
 
 known_faces_folder = "known_faces"
 
-for filename in os.listdir(known_faces_folder):
-    if filename.lower().endswith((".jpg", ".jpeg", ".png")):
+if os.path.exists(known_faces_folder):
 
-        image_path = os.path.join(known_faces_folder, filename)
-        image = cv2.imread(image_path)
+    for filename in os.listdir(known_faces_folder):
 
-        faces = face_app.get(image)
+        if filename.lower().endswith((".jpg", ".jpeg", ".png")):
 
-        if len(faces) > 0:
-            name = os.path.splitext(filename)[0]
-            known_faces[name] = faces[0].embedding
+            image_path = os.path.join(
+                known_faces_folder,
+                filename
+            )
 
-            print(f"Loaded known face: {name}")
+            image = cv2.imread(image_path)
 
+            if image is None:
+                continue
+
+            faces = face_app.get(image)
+
+            if len(faces) > 0:
+
+                name = os.path.splitext(filename)[0]
+
+                known_faces[name] = faces[0].embedding
+
+                print(f"Loaded known face: {name}")
+
+
+# =========================================================
+# DETECT FACES
+# =========================================================
 
 def detect_faces(frame):
+
     faces = face_app.get(frame)
+
     return faces
 
+
+# =========================================================
+# DRAW & RECOGNIZE FACES
+# =========================================================
 
 def draw_faces(frame, faces):
 
@@ -45,23 +79,31 @@ def draw_faces(frame, faces):
         name = "Unknown"
 
         if known_faces:
+
             current_embedding = face.embedding
 
             best_name = "Unknown"
+
             best_score = 0
 
             for known_name, known_embedding in known_faces.items():
 
-                score = np.dot(current_embedding, known_embedding) / (
+                score = np.dot(
+                    current_embedding,
+                    known_embedding
+                ) / (
                     np.linalg.norm(current_embedding)
                     * np.linalg.norm(known_embedding)
                 )
 
                 if score > best_score:
+
                     best_score = score
+
                     best_name = known_name
 
             if best_score > 0.50:
+
                 name = best_name
 
         cv2.rectangle(
