@@ -6,7 +6,6 @@ from insightface.app import FaceAnalysis
 
 # =========================================================
 # FACE RECOGNITION MODEL
-# Lightweight model for Render Free memory limit
 # =========================================================
 
 face_app = FaceAnalysis(
@@ -21,38 +20,63 @@ face_app.prepare(
 
 
 # =========================================================
-# LOAD KNOWN FACES
+# KNOWN FACES
 # =========================================================
 
 known_faces = {}
 
 known_faces_folder = "known_faces"
 
-if os.path.exists(known_faces_folder):
+
+# =========================================================
+# LOAD KNOWN FACES FUNCTION
+# =========================================================
+
+def load_known_faces():
+
+    global known_faces
+
+    known_faces = {}
+
+    if not os.path.exists(known_faces_folder):
+        print("known_faces folder not found")
+        return known_faces
 
     for filename in os.listdir(known_faces_folder):
 
-        if filename.lower().endswith((".jpg", ".jpeg", ".png")):
+        if not filename.lower().endswith(
+            (".jpg", ".jpeg", ".png")
+        ):
+            continue
 
-            image_path = os.path.join(
-                known_faces_folder,
-                filename
-            )
+        image_path = os.path.join(
+            known_faces_folder,
+            filename
+        )
 
-            image = cv2.imread(image_path)
+        image = cv2.imread(image_path)
 
-            if image is None:
-                continue
+        if image is None:
+            continue
 
-            faces = face_app.get(image)
+        faces = face_app.get(image)
 
-            if len(faces) > 0:
+        if len(faces) > 0:
 
-                name = os.path.splitext(filename)[0]
+            name = os.path.splitext(filename)[0]
 
-                known_faces[name] = faces[0].embedding
+            known_faces[name] = faces[0].embedding
 
-                print(f"Loaded known face: {name}")
+            print(f"Loaded known face: {name}")
+
+    return known_faces
+
+
+# =========================================================
+# LOAD FACES AT STARTUP
+# =========================================================
+
+load_known_faces()
 
 
 # =========================================================
@@ -83,7 +107,6 @@ def draw_faces(frame, faces):
             current_embedding = face.embedding
 
             best_name = "Unknown"
-
             best_score = 0
 
             for known_name, known_embedding in known_faces.items():
@@ -99,7 +122,6 @@ def draw_faces(frame, faces):
                 if score > best_score:
 
                     best_score = score
-
                     best_name = known_name
 
             if best_score > 0.50:
